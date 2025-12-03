@@ -1,0 +1,35 @@
+:root {
+  --color-parchment: #f4e4bc;
+  --color-wood-dark: #4a3728;
+  --color-wood-light: #8b5a2b;
+  --color-grass: #4a7023;
+  --color-stone: #7d7d7d;
+  --color-sky: #87ceeb;
+  --color-text-main: #2c1810;
+  
+  --font-serif: 'Times New Roman', Times, serif;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: var(--font-serif);
+  background-color: var(--color-sky);
+  background-image: 
+    linear-gradient(to bottom, var(--color-sky) 0%, #e0f7fa 100%);
+  color: var(--color-text-main);
+  min-height: 100vh;
+  display: flex;
+  justify-content: center;
+  align-items: flex-start; /* Changed from center to handle scrolling better */
+  overflow-x: hidden;
+  padding-top: 5vh;
+}
+
+*, *::before, *::after {
+  box-sizing: border-box;
+}
+
+button {
+  font-family: inherit;
+}
