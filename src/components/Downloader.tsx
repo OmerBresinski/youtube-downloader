@@ -1,15 +1,30 @@
 import { useState } from "react";
 
+interface VideoInfo {
+  title: string;
+  author: string;
+  duration: string;
+  thumbnail: string;
+}
+
 interface DownloadResult {
   status: "idle" | "loading" | "success" | "error";
   message?: string;
   downloadUrl?: string;
   filename?: string;
+  videoInfo?: VideoInfo;
 }
 
 export const Downloader = () => {
   const [url, setUrl] = useState("");
   const [result, setResult] = useState<DownloadResult>({ status: "idle" });
+
+  const formatDuration = (seconds: string) => {
+    const sec = parseInt(seconds, 10);
+    const mins = Math.floor(sec / 60);
+    const secs = sec % 60;
+    return `${mins}:${secs.toString().padStart(2, "0")}`;
+  };
 
   const handleDownload = async () => {
     if (!url) return;
@@ -17,7 +32,6 @@ export const Downloader = () => {
     setResult({ status: "loading" });
 
     try {
-      // Call our own API route (which proxies to Cobalt)
       const response = await fetch("/api/download", {
         method: "POST",
         headers: {
@@ -28,41 +42,26 @@ export const Downloader = () => {
 
       const data = await response.json();
 
-      if (data.status === "error" || data.error) {
+      if (data.error) {
         setResult({
           status: "error",
-          message:
-            data.error?.code ||
-            data.error ||
-            data.text ||
-            "Failed to fetch download link.",
+          message: data.error,
         });
-      } else if (data.url) {
+      } else if (data.status === "success" && data.url) {
         setResult({
           status: "success",
           downloadUrl: data.url,
           filename: data.filename || "download.mp3",
+          videoInfo: {
+            title: data.title,
+            author: data.author,
+            duration: formatDuration(data.duration),
+            thumbnail: data.thumbnail,
+          },
         });
 
-        // Open the download URL in a new tab (more reliable than anchor click)
+        // Open the download URL in a new tab
         window.open(data.url, "_blank");
-      } else if (data.picker) {
-        // Handle picker (multiple audio tracks, e.g., from a video with multiple formats)
-        const firstItem = data.picker[0];
-        if (firstItem?.url) {
-          setResult({
-            status: "success",
-            downloadUrl: firstItem.url,
-            filename: "download.mp3",
-          });
-          window.open(firstItem.url, "_blank");
-        } else {
-          setResult({
-            status: "error",
-            message:
-              "Multiple items found but couldn't extract a download link.",
-          });
-        }
       } else {
         setResult({
           status: "error",
@@ -78,17 +77,24 @@ export const Downloader = () => {
     }
   };
 
+  const handleKeyDown = (e: React.KeyboardEvent) => {
+    if (e.key === "Enter" && url && result.status !== "loading") {
+      handleDownload();
+    }
+  };
+
   return (
     <div className="paper-scroll">
       <div className="input-group">
-        <label htmlFor="url-input">The Bard's Song Request</label>
+        <label htmlFor="url-input">🎵 The Bard's Song Request</label>
         <input
           id="url-input"
           type="text"
           className="rustic-input"
-          placeholder="Paste a YouTube or Spotify link here..."
+          placeholder="Paste a YouTube link here..."
           value={url}
           onChange={(e) => setUrl(e.target.value)}
+          onKeyDown={handleKeyDown}
         />
       </div>
 
@@ -98,38 +104,52 @@ export const Downloader = () => {
         disabled={result.status === "loading" || !url}
       >
         {result.status === "loading"
-          ? "Conjuring Music..."
-          : "Transcribe to MP3"}
+          ? "🔮 Conjuring Music..."
+          : "📜 Transcribe to Audio"}
       </button>
 
       {result.status === "error" && (
-        <div
-          style={{ color: "#8b0000", marginTop: "1rem", fontWeight: "bold" }}
-        >
-          ⚠ {result.message}
+        <div className="result-message error">⚠️ {result.message}</div>
+      )}
+
+      {result.status === "success" && result.videoInfo && (
+        <div className="success-card">
+          <div className="video-info">
+            {result.videoInfo.thumbnail && (
+              <img
+                src={result.videoInfo.thumbnail}
+                alt="Video thumbnail"
+                className="video-thumbnail"
+              />
+            )}
+            <div className="video-details">
+              <h3>{result.videoInfo.title}</h3>
+              <p className="video-author">by {result.videoInfo.author}</p>
+              <p className="video-duration">⏱️ {result.videoInfo.duration}</p>
+            </div>
+          </div>
+          <div className="result-message success">
+            ✨ Success! Your scroll is ready.
+            <br />
+            <a
+              href={result.downloadUrl}
+              target="_blank"
+              rel="noreferrer"
+              className="download-link"
+            >
+              🎧 Click here if download didn't start
+            </a>
+          </div>
         </div>
       )}
 
-      {result.status === "success" && (
-        <div
-          style={{ color: "#4a7023", marginTop: "1rem", fontWeight: "bold" }}
-        >
-          ✨ Success! Your scroll is ready. <br />
-          <a
-            href={result.downloadUrl}
-            target="_blank"
-            rel="noreferrer"
-            style={{ color: "inherit" }}
-          >
-            Click here if download didn't start.
-          </a>
-        </div>
-      )}
-
-      <div className="playlist-preview">
-        <p style={{ textAlign: "center", opacity: 0.6, fontStyle: "italic" }}>
-          Works with YouTube & Spotify links. <br />
-          Powered by Cobalt magic.
+      <div className="footer-note">
+        <p>
+          Works with YouTube videos.
+          <br />
+          <span className="magic-text">
+            Powered by ancient village magic ✨
+          </span>
         </p>
       </div>
     </div>
