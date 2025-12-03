@@ -17,29 +17,25 @@ export const Downloader = () => {
     setResult({ status: "loading" });
 
     try {
-      // Using Cobalt API (https://github.com/imputnet/cobalt)
-      // Public instance: https://api.cobalt.tools
-      const response = await fetch("https://api.cobalt.tools/api/json", {
+      // Call our own API route (which proxies to Cobalt)
+      const response = await fetch("/api/download", {
         method: "POST",
         headers: {
-          Accept: "application/json",
           "Content-Type": "application/json",
         },
-        body: JSON.stringify({
-          url: url,
-          vCodec: "h264",
-          vQuality: "720",
-          aFormat: "mp3",
-          isAudioOnly: true,
-        }),
+        body: JSON.stringify({ url }),
       });
 
       const data = await response.json();
 
-      if (data.status === "error") {
+      if (data.status === "error" || data.error) {
         setResult({
           status: "error",
-          message: data.text || "Failed to fetch download link.",
+          message:
+            data.error?.code ||
+            data.error ||
+            data.text ||
+            "Failed to fetch download link.",
         });
       } else if (data.url) {
         setResult({
@@ -48,20 +44,25 @@ export const Downloader = () => {
           filename: data.filename || "download.mp3",
         });
 
-        // Auto-trigger download if possible
-        const a = document.createElement("a");
-        a.href = data.url;
-        a.download = data.filename || "audio.mp3";
-        document.body.appendChild(a);
-        a.click();
-        document.body.removeChild(a);
+        // Open the download URL in a new tab (more reliable than anchor click)
+        window.open(data.url, "_blank");
       } else if (data.picker) {
-        // Handle picker (multiple items), for simplicity just take the first or warn
-        setResult({
-          status: "error",
-          message:
-            "Playlist or picker not fully supported in this simple demo. Try a single video.",
-        });
+        // Handle picker (multiple audio tracks, e.g., from a video with multiple formats)
+        const firstItem = data.picker[0];
+        if (firstItem?.url) {
+          setResult({
+            status: "success",
+            downloadUrl: firstItem.url,
+            filename: "download.mp3",
+          });
+          window.open(firstItem.url, "_blank");
+        } else {
+          setResult({
+            status: "error",
+            message:
+              "Multiple items found but couldn't extract a download link.",
+          });
+        }
       } else {
         setResult({
           status: "error",
@@ -72,8 +73,7 @@ export const Downloader = () => {
       console.error(error);
       setResult({
         status: "error",
-        message:
-          "Network error or CORS issue. This API might not work directly from localhost without a proxy.",
+        message: "Network error. Please try again.",
       });
     }
   };
